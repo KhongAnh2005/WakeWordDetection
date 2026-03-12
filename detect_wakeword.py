@@ -17,6 +17,9 @@ CONFIDENCE_THRESHOLD = 0.5
 OVERLAP = 0.5
 HOP_LEN = int(TARGET_LEN * (1 - OVERLAP))
 
+# số cửa sổ bỏ qua sau khi detect để tránh đếm 1 lần nói thành nhiều lần
+COOLDOWN_WINDOWS = 2
+
 AUDIO_EXTENSIONS = (".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac")
 
 
@@ -127,6 +130,9 @@ def detect_from_mic():
     # buffer giữ lại nửa cửa sổ trước để tạo sliding window liên tục
     buffer = np.zeros(TARGET_LEN, dtype="float32")
 
+    # đếm số cửa sổ còn lại trong thời gian cooldown
+    cooldown = 0
+
     print("Listening... Press Ctrl+C to stop")
 
     while True:
@@ -146,11 +152,19 @@ def detect_from_mic():
         # cập nhật buffer: dịch trái và ghép audio mới vào cuối
         buffer = np.concatenate([buffer[HOP_LEN:], new_audio])
 
+        # bỏ qua detect trong thời gian cooldown sau khi vừa phát hiện
+        if cooldown > 0:
+            cooldown -= 1
+            print(f"No wake word (confidence: --) [cooldown]")
+            continue
+
         proba = detect(buffer.copy())
 
         if proba >= CONFIDENCE_THRESHOLD:
             count += 1
             print(f"Wake word detected! Total: {count} (confidence: {proba:.2f})")
+            # kích hoạt cooldown để bỏ qua các cửa sổ tiếp theo
+            cooldown = COOLDOWN_WINDOWS
         else:
             print(f"No wake word (confidence: {proba:.2f})")
 
