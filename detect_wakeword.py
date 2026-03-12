@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import librosa
 import joblib
@@ -9,7 +10,20 @@ SR = 16000
 DURATION = 2
 TARGET_LEN = SR * DURATION
 
+# ngưỡng xác suất để xác nhận wake word, tránh false positive
+CONFIDENCE_THRESHOLD = 0.5
+
+# tỉ lệ overlap giữa các cửa sổ khi nghe realtime (0.5 = 50%)
+OVERLAP = 0.5
+HOP_LEN = int(TARGET_LEN * (1 - OVERLAP))
+
 AUDIO_EXTENSIONS = (".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac")
+
+
+# KIỂM TRA MODEL TỒN TẠI TRƯỚC KHI LOAD
+if not os.path.exists("wakeword_model.pkl") or not os.path.exists("scaler.pkl"):
+    print("ERROR: Model not found. Run train_model.py first.")
+    exit()
 
 
 # LOAD MODEL
@@ -64,9 +78,10 @@ def detect(audio):
 
     features = scaler.transform(features)
 
-    prediction = model.predict(features)
+    # dùng predict_proba thay predict để lọc theo ngưỡng tin cậy
+    proba = model.predict_proba(features)[0][1]
 
-    return prediction[0]
+    return proba
 
 
 # MODE 1: AUDIO FILE
@@ -74,11 +89,33 @@ def detect_from_file(file_path):
 
     audio, _ = librosa.load(file_path, sr=SR, mono=True)
 
-    result = detect(audio)
+    # nếu file ngắn hơn hoặc bằng 1 window thì detect thẳng, không cần sliding
+    if len(audio) <= TARGET_LEN:
+        proba = detect(audio)
+        if proba >= CONFIDENCE_THRESHOLD:
+            print(f"Wake word detected! (confidence: {proba:.2f})")
+        else:
+            print(f"No wake word detected. (confidence: {proba:.2f})")
+        return
 
-    if result == 1:
-        print("Wake word detected!")
-    else:
+    # dùng sliding window với overlap để không bỏ sót wake word ở ranh giới đoạn
+    detected = False
+
+    start = 0
+    while start + TARGET_LEN <= len(audio):
+
+        window = audio[start: start + TARGET_LEN]
+
+        proba = detect(window)
+
+        if proba >= CONFIDENCE_THRESHOLD:
+            time_sec = start / SR
+            print(f"Wake word detected at {time_sec:.2f}s (confidence: {proba:.2f})")
+            detected = True
+
+        start += HOP_LEN
+
+    if not detected:
         print("No wake word detected.")
 
 
@@ -87,12 +124,16 @@ def detect_from_mic():
 
     count = 0
 
+    # buffer giữ lại nửa cửa sổ trước để tạo sliding window liên tục
+    buffer = np.zeros(TARGET_LEN, dtype="float32")
+
     print("Listening... Press Ctrl+C to stop")
 
     while True:
 
-        audio = sd.rec(
-            TARGET_LEN,
+        # chỉ record phần mới (HOP_LEN samples), ghép với buffer cũ
+        new_audio = sd.rec(
+            HOP_LEN,
             samplerate=SR,
             channels=1,
             dtype="float32"
@@ -100,15 +141,18 @@ def detect_from_mic():
 
         sd.wait()
 
-        audio = audio.flatten()
+        new_audio = new_audio.flatten()
 
-        result = detect(audio)
+        # cập nhật buffer: dịch trái và ghép audio mới vào cuối
+        buffer = np.concatenate([buffer[HOP_LEN:], new_audio])
 
-        if result == 1:
+        proba = detect(buffer.copy())
+
+        if proba >= CONFIDENCE_THRESHOLD:
             count += 1
-            print("Wake word detected! Total:", count)
+            print(f"Wake word detected! Total: {count} (confidence: {proba:.2f})")
         else:
-            print("No wake word")
+            print(f"No wake word (confidence: {proba:.2f})")
 
 
 # MAIN MENU

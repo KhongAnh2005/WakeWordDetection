@@ -68,10 +68,19 @@ y = []   # labels
 labels = ["non_wake", "wake"]
 
 
+# KIỂM TRA DATASET TỒN TẠI TRƯỚC KHI ĐỌC
+for label_name in labels:
+    folder_path = os.path.join(DATASET_PATH, label_name)
+    if not os.path.exists(folder_path):
+        print(f"ERROR: Folder not found: {folder_path}")
+        exit()
+
+
 # ĐỌC TẤT CẢ AUDIO TRONG DATASET
 for label_index, label_name in enumerate(labels):
 
     folder_path = os.path.join(DATASET_PATH, label_name)
+    count = 0
 
     for file in os.listdir(folder_path):
 
@@ -88,9 +97,18 @@ for label_index, label_name in enumerate(labels):
 
             X.append(features)
             y.append(label_index)
+            count += 1
 
         except Exception as e:
             print("Error:", file_path)
+
+    print(f"Loaded {count} files from '{label_name}'")
+
+
+# KIỂM TRA DATASET KHÔNG RỖNG SAU KHI ĐỌC
+if len(X) == 0:
+    print("ERROR: No audio files found. Check dataset folder structure.")
+    exit()
 
 
 # CHUYỂN SANG NUMPY ARRAY
@@ -110,4 +128,8 @@ y = y[indices]
 np.save("X.npy", X)
 np.save("y.npy", y)
 
-print("Dataset saved")
+# in thống kê dataset
+print(f"\nDataset saved")
+print(f"Total samples : {len(X)}")
+print(f"Wake samples  : {int(np.sum(y == 1))}")
+print(f"Non-wake      : {int(np.sum(y == 0))}")
