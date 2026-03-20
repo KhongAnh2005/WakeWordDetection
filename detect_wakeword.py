@@ -11,14 +11,14 @@ DURATION = 2
 TARGET_LEN = SR * DURATION
 
 # ngưỡng xác suất để xác nhận wake word, tránh false positive
-CONFIDENCE_THRESHOLD = 0.5
+CONFIDENCE_THRESHOLD = 0.95
 
 # tỉ lệ overlap giữa các cửa sổ khi nghe realtime (0.5 = 50%)
 OVERLAP = 0.5
 HOP_LEN = int(TARGET_LEN * (1 - OVERLAP))
 
 # số cửa sổ bỏ qua sau khi detect để tránh đếm 1 lần nói thành nhiều lần
-COOLDOWN_WINDOWS = 2
+COOLDOWN_WINDOWS = 1
 
 AUDIO_EXTENSIONS = (".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac")
 
