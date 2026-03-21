@@ -7,11 +7,11 @@ import sounddevice as sd
 
 # CẤU HÌNH
 SR = 16000
-DURATION = 2
-TARGET_LEN = SR * DURATION
+DURATION = 1.75
+TARGET_LEN = int(SR * DURATION)
 
 # ngưỡng xác suất để xác nhận wake word, tránh false positive
-CONFIDENCE_THRESHOLD = 0.95
+CONFIDENCE_THRESHOLD = 0.85
 
 # tỉ lệ overlap giữa các cửa sổ khi nghe realtime (0.5 = 50%)
 OVERLAP = 0.5
